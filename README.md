@@ -162,4 +162,3 @@ Para dúvidas sobre integração com backend Java ou uso da aplicação, consult
 
 - [Documentação de Integração](INTEGRATION.md)
 - [Issues do GitHub](../../issues)
-- Documentação dos componentes Shadcn/ui

@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authService, AuthUser } from '../services/authService';
+import authService, { AuthUser } from '../services/authService';
 
 export interface Conta {
   id: string;
@@ -100,10 +100,17 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
 
   // Verificar se há usuário salvo ao inicializar
   useEffect(() => {
-    const savedUser = authService.getUser();
-    if (savedUser) {
-      setIsLoggedIn(true);
-      setUsuario(savedUser);
+    try {
+      const savedUser = authService.getCurrentUser();
+      if (savedUser) {
+        setIsLoggedIn(true);
+        setUsuario(savedUser);
+      }
+    } catch (error) {
+      console.warn('Erro ao recuperar usuário salvo:', error);
+      // Limpar dados corrompidos
+      authService.removeUserData();
+      authService.removeToken();
     }
   }, []);
 
@@ -119,7 +126,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const login = (userData: AuthUser) => {
     setIsLoggedIn(true);
     setUsuario(userData);
-    authService.saveUser(userData);
+    authService.setUserData(userData);
   };
 
   const logout = () => {

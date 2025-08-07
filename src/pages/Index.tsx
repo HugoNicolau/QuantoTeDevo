@@ -99,7 +99,7 @@ const Index = () => {
               <p className="text-sm text-slate-600">
                 Não tem uma conta?{' '}
                 <Link 
-                  to="/cadastrar-conta" 
+                  to="/registro" 
                   className="text-emerald-600 hover:text-emerald-500 font-medium"
                 >
                   Criar conta
