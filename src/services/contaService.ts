@@ -73,7 +73,7 @@ export class ContaService {
 
   async marcarComoPendente(id: number): Promise<Conta> {
     // Esta rota pode não existir no backend, mantendo para compatibilidade
-    const response = await api.patch<Conta>(`/api/contas/${id}/pendente`);
+    const response = await api.patch<Conta>(`/api/contas/${id}/marcar-pendente`);
     return response.data;
   }
 

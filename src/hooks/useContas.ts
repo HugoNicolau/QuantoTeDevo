@@ -260,6 +260,63 @@ export const useAlterarStatusConta = () => {
   });
 };
 
+export const useMarcarContaComoVencida = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: number) => contaService.marcarComoVencida(id),
+    onSuccess: (updatedConta) => {
+      queryClient.invalidateQueries({ queryKey: contaKeys.all });
+      queryClient.setQueryData(contaKeys.detail(updatedConta.id), updatedConta);
+      toast.success('Conta marcada como vencida!');
+    },
+    onError: (error: AxiosError<ErrorResponse>) => {
+      const message = error.response?.data?.message || 'Erro ao marcar conta como vencida';
+      toast.error(message);
+    }
+  });
+};
+
+export const useVerificarContasVencidas = () => {
+  const queryClient = useQueryClient();
+  const marcarVencida = useMarcarContaComoVencida();
+
+  return useMutation({
+    mutationFn: async (usuarioId?: number) => {
+      const contas = await contaService.listarContas(usuarioId);
+      const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0); // Zera as horas para comparação apenas da data
+      
+      const contasVencidas = contas.filter(conta => {
+        if (conta.paga || conta.status === 'VENCIDA') return false;
+        
+        const dataVencimento = new Date(conta.vencimento);
+        dataVencimento.setHours(0, 0, 0, 0);
+        
+        return dataVencimento < hoje;
+      });
+
+      // Marcar todas as contas vencidas
+      const promises = contasVencidas.map(conta => 
+        contaService.marcarComoVencida(conta.id)
+      );
+
+      await Promise.all(promises);
+      return contasVencidas.length;
+    },
+    onSuccess: (quantidadeVencidas) => {
+      queryClient.invalidateQueries({ queryKey: contaKeys.all });
+      if (quantidadeVencidas > 0) {
+        toast.info(`${quantidadeVencidas} conta(s) marcada(s) como vencida(s)`);
+      }
+    },
+    onError: (error: AxiosError<ErrorResponse>) => {
+      const message = error.response?.data?.message || 'Erro ao verificar contas vencidas';
+      toast.error(message);
+    }
+  });
+};
+
 // Mutations para divisões
 export const useCreateDivisao = () => {
   const queryClient = useQueryClient();
@@ -313,7 +370,9 @@ export const useDividirContaPorPorcentagem = () => {
       toast.error(message);
     }
   });
-};export const useMarcarDivisaoComoPaga = () => {
+};
+
+export const useMarcarDivisaoComoPaga = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -367,4 +426,35 @@ export const useDeleteDivisao = () => {
 // Hooks legados para compatibilidade
 export const useContasPorUsuario = (usuarioId: number, filter?: ContaFilter) => {
   return useContas(filter); // Agora usa o método padrão
+};
+
+// Hook para verificação automática de contas vencidas
+export const useAutoVerificarContasVencidas = (usuarioId?: number, enabled: boolean = true) => {
+  return useQuery({
+    queryKey: [...contaKeys.all, 'auto-verificar-vencidas', usuarioId],
+    queryFn: async () => {
+      const contas = await contaService.listarContas(usuarioId);
+      const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0);
+      
+      const contasVencidas = contas.filter(conta => {
+        if (conta.paga || conta.status === 'VENCIDA') return false;
+        
+        const dataVencimento = new Date(conta.vencimento);
+        dataVencimento.setHours(0, 0, 0, 0);
+        
+        return dataVencimento < hoje;
+      });
+
+      // Retorna apenas informações, não executa a marcação automaticamente
+      return {
+        contasVencidas: contasVencidas.length,
+        contas: contasVencidas
+      };
+    },
+    enabled,
+    staleTime: 5 * 60 * 1000, // 5 minutos
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
 };
