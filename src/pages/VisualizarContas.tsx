@@ -1,23 +1,31 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useApp } from '../contexts/AppContext';
+import { useContas } from '../hooks/useContas';
 import Header from '../components/Header';
 import CustomButton from '../components/CustomButton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Calendar, DollarSign, Users, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { ArrowLeft, Calendar, DollarSign, Users, CheckCircle, XCircle, Clock, Loader2 } from 'lucide-react';
 
 const VisualizarContas = () => {
   const navigate = useNavigate();
-  const { contas } = useApp();
+  const { data: contas = [], isLoading, error } = useContas();
   const [filtroStatus, setFiltroStatus] = useState<string>('todos');
 
+  const contasAdaptadas = contas.map(conta => ({
+    ...conta,
+    dataVencimento: conta.vencimento,
+    status: conta.paga ? 'Paga' : 'Pendente' as 'Paga' | 'Pendente' | 'Vencida',
+    tipo: 'Pessoal' as 'Pessoal' | 'Compartilhada',
+    usuariosCompartilhados: [] as string[]
+  }));
+
   const contasFiltradas = filtroStatus === 'todos' 
-    ? contas 
-    : contas.filter(conta => conta.status?.toLowerCase() === filtroStatus.toLowerCase());
+    ? contasAdaptadas 
+    : contasAdaptadas.filter(conta => conta.status?.toLowerCase() === filtroStatus.toLowerCase());
 
   const formatarData = (data: string) => {
     return new Date(data).toLocaleDateString('pt-BR');
@@ -57,14 +65,46 @@ const VisualizarContas = () => {
   };
 
   const contarPorStatus = (status: string) => {
-    return contas.filter(conta => conta.status === status).length;
+    return contasAdaptadas.filter(conta => conta.status === status).length;
   };
 
   const calcularTotalPorStatus = (status: string) => {
-    return contas
+    return contasAdaptadas
       .filter(conta => conta.status === status)
       .reduce((total, conta) => total + conta.valor, 0);
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header title="Visualizar Contas" />
+        <div className="container mx-auto px-6 py-8">
+          <div className="flex items-center justify-center h-64">
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-6 h-6 animate-spin" />
+              <span>Carregando contas...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header title="Visualizar Contas" />
+        <div className="container mx-auto px-6 py-8">
+          <div className="text-center">
+            <p className="text-red-500 mb-4">Erro ao carregar contas: {error.message}</p>
+            <CustomButton onClick={() => navigate('/dashboard')}>
+              Voltar ao Dashboard
+            </CustomButton>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

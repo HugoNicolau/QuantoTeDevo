@@ -1,5 +1,6 @@
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { authService, AuthUser } from '../services/authService';
 
 export interface Conta {
   id: string;
@@ -13,11 +14,13 @@ export interface Conta {
 }
 
 interface AppContextType {
+  isLoggedIn: boolean;
+  usuario: AuthUser | null;
+  login: (usuario: AuthUser) => void;
+  logout: () => void;
+  
   contas: Conta[];
   adicionarConta: (conta: Omit<Conta, 'id'>) => void;
-  isLoggedIn: boolean;
-  login: () => void;
-  logout: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -93,6 +96,16 @@ const dadosFicticios: Conta[] = [
 export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [contas, setContas] = useState<Conta[]>(dadosFicticios);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [usuario, setUsuario] = useState<AuthUser | null>(null);
+
+  // Verificar se há usuário salvo ao inicializar
+  useEffect(() => {
+    const savedUser = authService.getUser();
+    if (savedUser) {
+      setIsLoggedIn(true);
+      setUsuario(savedUser);
+    }
+  }, []);
 
   const adicionarConta = (novaConta: Omit<Conta, 'id'>) => {
     const conta: Conta = {
@@ -103,21 +116,27 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     setContas(prev => [...prev, conta]);
   };
 
-  const login = () => {
+  const login = (userData: AuthUser) => {
     setIsLoggedIn(true);
+    setUsuario(userData);
+    authService.saveUser(userData);
   };
 
   const logout = () => {
     setIsLoggedIn(false);
+    setUsuario(null);
+    authService.logout();
   };
 
   return (
     <AppContext.Provider value={{
-      contas,
-      adicionarConta,
       isLoggedIn,
+      usuario,
       login,
-      logout
+      logout,
+      
+      contas,
+      adicionarConta
     }}>
       {children}
     </AppContext.Provider>

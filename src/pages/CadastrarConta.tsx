@@ -2,26 +2,29 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
+import { useCreateConta } from '../hooks/useContas';
+import { useAuth } from '../hooks/useAuth';
 import Header from '../components/Header';
 import CustomButton from '../components/CustomButton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft } from 'lucide-react';
-import { toast } from 'sonner';
 
 const CadastrarConta = () => {
   const navigate = useNavigate();
   const { adicionarConta } = useApp();
+  const { user } = useAuth();
+  const createContaMutation = useCreateConta();
   
   const [descricao, setDescricao] = useState('');
   const [valor, setValor] = useState('');
   const [dataVencimento, setDataVencimento] = useState('');
-  const [tipo, setTipo] = useState<'Pessoal' | 'Compartilhada'>('Pessoal');
+  const [tipo, setTipo] = useState<'PESSOAL' | 'COMPARTILHADA'>('PESSOAL');
   const [usuariosCompartilhados, setUsuariosCompartilhados] = useState('');
   const [erro, setErro] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro('');
 
@@ -35,20 +38,34 @@ const CadastrarConta = () => {
       return;
     }
 
-    const usuariosArray = tipo === 'Compartilhada' 
+    const usuariosArray = tipo === 'COMPARTILHADA' 
       ? usuariosCompartilhados.split(',').map(u => u.trim()).filter(u => u)
       : [];
 
-    adicionarConta({
-      descricao,
-      valor: Number(valor),
-      dataVencimento,
-      tipo,
-      usuariosCompartilhados: usuariosArray
-    });
+    try {
+      // Tentar usar a API real primeiro
+      await createContaMutation.mutateAsync({
+        descricao,
+        valor: Number(valor),
+        vencimento: dataVencimento,
+        criadorId: user?.id || 1 // Usa ID do usuário logado ou 1 como fallback
+      });
 
-    toast.success('Conta cadastrada com sucesso!');
-    navigate('/dashboard');
+      navigate('/dashboard');
+    } catch (error) {
+      // Fallback para dados locais em caso de erro na API
+      console.warn('API não disponível, usando dados locais:', error);
+      
+      adicionarConta({
+        descricao,
+        valor: Number(valor),
+        dataVencimento,
+        tipo: tipo === 'PESSOAL' ? 'Pessoal' : 'Compartilhada',
+        usuariosCompartilhados: usuariosArray
+      });
+
+      navigate('/dashboard');
+    }
   };
 
   return (
@@ -93,25 +110,25 @@ const CadastrarConta = () => {
               
               <div className="space-y-2">
                 <Label>Tipo de Conta</Label>
-                <Select value={tipo} onValueChange={(value: 'Pessoal' | 'Compartilhada') => setTipo(value)}>
+                <Select value={tipo} onValueChange={(value: 'PESSOAL' | 'COMPARTILHADA') => setTipo(value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione o tipo" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Pessoal">Pessoal</SelectItem>
-                    <SelectItem value="Compartilhada">Compartilhada</SelectItem>
+                    <SelectItem value="PESSOAL">Pessoal</SelectItem>
+                    <SelectItem value="COMPARTILHADA">Compartilhada</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               
-              {tipo === 'Compartilhada' && (
+              {tipo === 'COMPARTILHADA' && (
                 <div className="space-y-2">
-                  <Label htmlFor="usuarios">Usuários Compartilhados (vírgula separados)</Label>
+                  <Label htmlFor="usuarios">Usuários Compartilhados (emails separados por vírgula)</Label>
                   <Input
                     id="usuarios"
                     value={usuariosCompartilhados}
                     onChange={(e) => setUsuariosCompartilhados(e.target.value)}
-                    placeholder="João, Maria, Pedro"
+                    placeholder="joao@email.com, maria@email.com, pedro@email.com"
                   />
                 </div>
               )}
@@ -121,8 +138,12 @@ const CadastrarConta = () => {
               )}
               
               <div className="flex gap-4">
-                <CustomButton type="submit" className="flex-1">
-                  Salvar Conta
+                <CustomButton 
+                  type="submit" 
+                  className="flex-1"
+                  disabled={createContaMutation.isPending}
+                >
+                  {createContaMutation.isPending ? 'Salvando...' : 'Salvar Conta'}
                 </CustomButton>
                 
                 <CustomButton
@@ -130,6 +151,7 @@ const CadastrarConta = () => {
                   variant="secondary"
                   onClick={() => navigate('/dashboard')}
                   className="flex items-center gap-2"
+                  disabled={createContaMutation.isPending}
                 >
                   <ArrowLeft size={20} />
                   Voltar
