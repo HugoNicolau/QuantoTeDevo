@@ -45,9 +45,7 @@ import {
   XCircle,
   Clock,
   Loader2,
-  Edit,
   Trash2,
-  Eye,
   MoreHorizontal,
   AlertTriangle,
   Plus,
@@ -525,26 +523,6 @@ const VisualizarContas = () => {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                              <DropdownMenuSeparator />
-
-                              <DropdownMenuItem
-                                onClick={() => navigate(`/contas/${conta.id}`)}
-                              >
-                                <Eye className="mr-2 h-4 w-4" />
-                                Visualizar
-                              </DropdownMenuItem>
-
-                              {podeEditarConta(conta) && (
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    navigate(`/contas/${conta.id}/editar`)
-                                  }
-                                >
-                                  <Edit className="mr-2 h-4 w-4" />
-                                  Editar
-                                </DropdownMenuItem>
-                              )}
-
                               <DropdownMenuSeparator />
 
                               {!conta.paga && (

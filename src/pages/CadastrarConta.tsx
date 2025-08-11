@@ -8,6 +8,7 @@ import Header from '../components/Header';
 import CustomButton from '../components/CustomButton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft } from 'lucide-react';
 
@@ -19,10 +20,19 @@ const CadastrarConta = () => {
   
   const [descricao, setDescricao] = useState('');
   const [valor, setValor] = useState('');
-  const [dataVencimento, setDataVencimento] = useState('');
+  const [dataVencimento, setDataVencimento] = useState<Date | undefined>(undefined);
   const [tipo, setTipo] = useState<'PESSOAL' | 'COMPARTILHADA'>('PESSOAL');
   const [usuariosCompartilhados, setUsuariosCompartilhados] = useState('');
   const [erro, setErro] = useState('');
+
+  // Converter Date para string no formato ISO (yyyy-mm-dd) para o backend
+  const formatarDataParaBackend = (date: Date | undefined): string => {
+    if (!date) return '';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +57,7 @@ const CadastrarConta = () => {
       await createContaMutation.mutateAsync({
         descricao,
         valor: Number(valor),
-        vencimento: dataVencimento,
+        vencimento: formatarDataParaBackend(dataVencimento),
         criadorId: user?.id || 1 // Usa ID do usuário logado ou 1 como fallback
       });
 
@@ -59,7 +69,7 @@ const CadastrarConta = () => {
       adicionarConta({
         descricao,
         valor: Number(valor),
-        dataVencimento,
+        dataVencimento: formatarDataParaBackend(dataVencimento),
         tipo: tipo === 'PESSOAL' ? 'Pessoal' : 'Compartilhada',
         usuariosCompartilhados: usuariosArray
       });
@@ -100,11 +110,10 @@ const CadastrarConta = () => {
               
               <div className="space-y-2">
                 <Label htmlFor="dataVencimento">Data de Vencimento *</Label>
-                <Input
-                  id="dataVencimento"
-                  type="date"
-                  value={dataVencimento}
-                  onChange={(e) => setDataVencimento(e.target.value)}
+                <DatePicker
+                  date={dataVencimento}
+                  onDateChange={setDataVencimento}
+                  placeholder="Selecione a data de vencimento"
                 />
               </div>
               

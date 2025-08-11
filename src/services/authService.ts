@@ -12,8 +12,39 @@ export class AuthService {
     return AuthService.instance;
   }
 
+  // Dados do usuário demo
+  private getDemoUser(): Usuario {
+    return {
+      id: 1,
+      nome: 'Usuário Demo',
+      email: 'demo@quantotedevo.com',
+      chavePix: 'demo@quantotedevo.com'
+    };
+  }
+
+  // Verificar se é login demo
+  private isDemoLogin(credentials: LoginRequest): boolean {
+    return credentials.email === 'demo@quantotedevo.com' && credentials.senha === 'demo123';
+  }
+
+  // Criar resposta de autenticação demo
+  private createDemoAuthResponse(): AuthResponse {
+    return {
+      token: 'demo-token-' + Date.now(),
+      usuario: this.getDemoUser()
+    };
+  }
+
   // Autenticação
   async login(credentials: LoginRequest): Promise<AuthResponse> {
+    // Verificar se é login demo
+    if (this.isDemoLogin(credentials)) {
+      const demoResponse = this.createDemoAuthResponse();
+      this.setAuthData(demoResponse);
+      return demoResponse;
+    }
+
+    // Login normal via API
     const response = await api.post<ApiAuthResponse>('/auth/login', credentials);
     const authData = response.data.data;
     this.setAuthData(authData);
@@ -28,6 +59,14 @@ export class AuthService {
   }
 
   async logout(): Promise<void> {
+    const token = this.getToken();
+    
+    // Se for token demo, apenas limpar dados locais
+    if (token?.startsWith('demo-token-')) {
+      this.clearAuthData();
+      return;
+    }
+    
     try {
       await api.post('/auth/logout');
     } catch (error) {
@@ -44,6 +83,13 @@ export class AuthService {
 
   // Validação de token
   async validateToken(): Promise<boolean> {
+    const token = this.getToken();
+    
+    // Se for token demo, sempre válido
+    if (token?.startsWith('demo-token-')) {
+      return true;
+    }
+    
     try {
       await api.get('/auth/validate');
       return true;
@@ -54,6 +100,13 @@ export class AuthService {
 
   // Perfil do usuário
   async getProfile(): Promise<Usuario> {
+    const token = this.getToken();
+    
+    // Se for token demo, retornar dados demo
+    if (token?.startsWith('demo-token-')) {
+      return this.getDemoUser();
+    }
+    
     const response = await api.get<Usuario>('/auth/profile');
     return response.data;
   }
@@ -130,6 +183,12 @@ export class AuthService {
 
   removeUserData(): void {
     localStorage.removeItem('user');
+  }
+
+  // Verificação de modo demo
+  isDemoMode(): boolean {
+    const token = this.getToken();
+    return !!token?.startsWith('demo-token-');
   }
 
   // Verificação de autenticação

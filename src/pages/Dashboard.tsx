@@ -1,20 +1,13 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useApp } from '../contexts/AppContext';
 import Header from '../components/Header';
 import CustomButton from '../components/CustomButton';
 import { Card, CardContent } from '@/components/ui/card';
-import { PlusCircle, Eye, Calculator, FileText, LogOut } from 'lucide-react';
+import { PlusCircle, Eye, Calculator, FileText, Users } from 'lucide-react';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { logout } = useApp();
-
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -24,7 +17,7 @@ const Dashboard = () => {
         <div className="max-w-2xl mx-auto">
           <div className="grid gap-6">
             <Card className="hover:shadow-lg transition-shadow">
-              <CardContent className="p-8">
+              <CardContent className="p-6">
                 <CustomButton
                   onClick={() => navigate('/cadastrar-conta')}
                   className="w-full h-16 text-lg flex items-center justify-center gap-3"
@@ -36,7 +29,7 @@ const Dashboard = () => {
             </Card>
 
             <Card className="hover:shadow-lg transition-shadow">
-              <CardContent className="p-8">
+              <CardContent className="p-6">
                 <CustomButton
                   onClick={() => navigate('/visualizar-saldos')}
                   className="w-full h-16 text-lg flex items-center justify-center gap-3"
@@ -48,7 +41,7 @@ const Dashboard = () => {
             </Card>
 
             <Card className="hover:shadow-lg transition-shadow">
-              <CardContent className="p-8">
+              <CardContent className="p-6">
                 <CustomButton
                   onClick={() => navigate('/visualizar-contas')}
                   className="w-full h-16 text-lg flex items-center justify-center gap-3"
@@ -60,7 +53,7 @@ const Dashboard = () => {
             </Card>
 
             <Card className="hover:shadow-lg transition-shadow">
-              <CardContent className="p-8">
+              <CardContent className="p-6">
                 <CustomButton
                   onClick={() => navigate('/dividir-despesas')}
                   className="w-full h-16 text-lg flex items-center justify-center gap-3"
@@ -71,16 +64,18 @@ const Dashboard = () => {
               </CardContent>
             </Card>
 
-            <div className="mt-8 text-center">
-              <CustomButton
-                variant="secondary"
-                onClick={handleLogout}
-                className="flex items-center gap-2 mx-auto"
-              >
-                <LogOut size={20} />
-                Sair
-              </CustomButton>
-            </div>
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardContent className="p-6">
+                <CustomButton
+                  onClick={() => navigate('/amizades')}
+                  className="w-full h-16 text-lg flex items-center justify-center gap-3"
+                  variant="secondary"
+                >
+                  <Users size={24} />
+                  Gerenciar Amizades
+                </CustomButton>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>

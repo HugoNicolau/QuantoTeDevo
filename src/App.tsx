@@ -14,6 +14,8 @@ import CadastrarConta from "./pages/CadastrarConta";
 import VisualizarSaldos from "./pages/VisualizarSaldos";
 import VisualizarContas from "./pages/VisualizarContas";
 import DividirDespesas from "./pages/DividirDespesas";
+import Amizades from "./pages/Amizades";
+import PagamentoExterno from "./pages/PagamentoExterno";
 import NotFound from "./pages/NotFound";
 import React, { Suspense } from 'react';
 
@@ -48,6 +50,8 @@ const App = () => (
                 <Route path="/visualizar-saldos" element={<VisualizarSaldos />} />
                 <Route path="/visualizar-contas" element={<VisualizarContas />} />
                 <Route path="/dividir-despesas" element={<DividirDespesas />} />
+                <Route path="/amizades" element={<Amizades />} />
+                <Route path="/pagamento/:linkId" element={<PagamentoExterno />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

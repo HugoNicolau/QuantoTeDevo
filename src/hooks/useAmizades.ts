@@ -11,7 +11,7 @@ export const useAmigos = (usuarioId?: number) => {
   });
 };
 
-export const useConvitesPendentes = (usuarioId?: number) => {
+export const useConvitesAmizadePendentes = (usuarioId?: number) => {
   return useQuery({
     queryKey: ['amizades', 'convites-pendentes', usuarioId],
     queryFn: () => amizadeService.listarConvitesPendentes(usuarioId),
