@@ -114,6 +114,37 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     }
   }, []);
 
+  useEffect(() => {
+    const handleUserLogin = (event: CustomEvent) => {
+      console.log('AppContext: Evento userLogin recebido', event.detail);
+      setIsLoggedIn(true);
+      setUsuario(event.detail);
+    };
+
+    const handleUserLogout = () => {
+      console.log('AppContext: Evento userLogout recebido');
+      setIsLoggedIn(false);
+      setUsuario(null);
+    };
+
+    const handleUserUpdated = (event: CustomEvent) => {
+      console.log('AppContext: Evento userUpdated recebido', event.detail);
+      setUsuario(event.detail);
+    };
+
+    // Adicionar listeners para os eventos do authService
+    window.addEventListener('userLogin', handleUserLogin as EventListener);
+    window.addEventListener('userLogout', handleUserLogout);
+    window.addEventListener('userUpdated', handleUserUpdated as EventListener);
+
+    return () => {
+      // Remover listeners na limpeza
+      window.removeEventListener('userLogin', handleUserLogin as EventListener);
+      window.removeEventListener('userLogout', handleUserLogout);
+      window.removeEventListener('userUpdated', handleUserUpdated as EventListener);
+    };
+  }, []);
+
   const adicionarConta = (novaConta: Omit<Conta, 'id'>) => {
     const conta: Conta = {
       ...novaConta,

@@ -31,12 +31,11 @@ export function useAuth() {
     onSuccess: (data) => {
       queryClient.setQueryData(['auth', 'user'], data.usuario);
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      
       toast.success(`Bem-vindo, ${data.usuario.nome}!`);
       
-      // Forçar recarregamento da página para garantir estado limpo
-      setTimeout(() => {
-        window.location.href = '/dashboard';
-      }, 1000);
+      // Navegar para o dashboard
+      navigate('/dashboard');
     },
     onError: (error: unknown) => {
       console.error('Erro no login:', error);
@@ -70,6 +69,7 @@ export function useAuth() {
     mutationFn: () => authService.logout(),
     onSuccess: () => {
       queryClient.clear();
+      
       toast.success('Logout realizado com sucesso!');
       navigate('/');
     },
@@ -82,7 +82,7 @@ export function useAuth() {
     user,
     isLoading,
     error,
-    isAuthenticated: authService.isAuthenticated() && !!user,
+    isAuthenticated: !!(user && authService.isAuthenticated()),
     login: (credentials: LoginRequest) => loginMutation.mutate(credentials),
     logout: () => logoutMutation.mutate(),
     isLoggingIn: loginMutation.isPending,

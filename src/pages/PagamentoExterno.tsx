@@ -21,7 +21,6 @@ const PagamentoExterno = () => {
     data: pagamentoInfo, 
     isLoading: loading, 
     error,
-    refetch 
   } = useBuscarPagamento(linkId);
   
   const confirmarPagamentoMutation = useConfirmarPagamento();
@@ -65,8 +64,7 @@ const PagamentoExterno = () => {
 
       toast.success('Pagamento confirmado com sucesso!');
       
-      // Refetch para atualizar os dados
-      refetch();
+      navigate('/cadastrar-conta');
       
     } catch (error) {
       toast.error('Erro ao confirmar pagamento. Tente novamente.');
@@ -135,7 +133,7 @@ const PagamentoExterno = () => {
                 </p>
               )}
             </div>
-            <Button onClick={() => navigate('/')} className="w-full">
+            <Button onClick={() => navigate('/cadastrar-conta')} className="w-full">
               Ir para o QuantoTeDevo
             </Button>
           </CardContent>

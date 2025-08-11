@@ -1,3 +1,5 @@
+import api from './api';
+
 interface CriarLinkRequest {
   nomeParticipante: string;
   valor: number;
@@ -37,24 +39,9 @@ class PagamentoExternoService {
     ? 'http://localhost:8080' 
     : '';
 
-  // Criar link de pagamento (rota autenticada)
   async criarLink(request: CriarLinkRequest): Promise<CriarLinkResponse> {
-    const token = localStorage.getItem('authToken');
-    
-    const response = await fetch(`${this.baseUrl}/api/pagamentos-externos/criar-link`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(request)
-    });
-
-    if (!response.ok) {
-      throw new Error('Erro ao criar link de pagamento');
-    }
-
-    return response.json();
+    const response = await api.post('/api/pagamentos-externos/criar-link', request);
+    return response.data;
   }
 
   // Buscar informações do pagamento (rota pública)
@@ -98,21 +85,8 @@ class PagamentoExternoService {
 
   // Listar pagamentos externos de uma conta (rota autenticada)
   async listarPorConta(contaId: number): Promise<PagamentoExternoDto[]> {
-    const token = localStorage.getItem('authToken');
-    
-    const response = await fetch(`${this.baseUrl}/api/pagamentos-externos/conta/${contaId}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error('Erro ao buscar pagamentos externos');
-    }
-
-    return response.json();
+    const response = await api.get(`/api/pagamentos-externos/conta/${contaId}`);
+    return response.data;
   }
 }
 
