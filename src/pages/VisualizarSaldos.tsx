@@ -2,6 +2,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useContas } from '../hooks/useContas';
+import { Conta } from '../types/api';
 import Header from '../components/Header';
 import CustomButton from '../components/CustomButton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,16 +13,76 @@ const VisualizarSaldos = () => {
   const navigate = useNavigate();
   const { data: contas = [], isLoading, error } = useContas();
 
+  // Função para detectar se uma conta tem participantes externos
+  const contaTemParticipantesExternos = (conta: Conta) => {
+    return conta.descricao.includes('(compartilhada com:');
+  };
+
+  // Função para detectar se uma conta é compartilhada (tem divisões OU externos)
+  const contaEhCompartilhada = (conta: Conta) => {
+    return (conta.divisoes && conta.divisoes.length > 0) || contaTemParticipantesExternos(conta) || conta.descricao.includes('(compartilhada)');
+  };
+
+  // Função para extrair nomes dos participantes externos da descrição
+  const extrairParticipantesExternos = (conta: Conta) => {
+    const match = conta.descricao.match(/\(compartilhada com: ([^)]+)\)/);
+    if (match) {
+      const todosNomes = match[1].split(', ').map((nome: string) => nome.trim());
+      
+      // Filtrar apenas os nomes que NÃO são de amigos nas divisões
+      const nomesAmigosNasDivisoes = conta.divisoes ? conta.divisoes.map(divisao => divisao.usuario.nome) : [];
+      
+      console.log('🔍 Debug participantes (Saldos):', {
+        contaId: conta.id,
+        descricao: conta.descricao,
+        todosNomes,
+        nomesAmigosNasDivisoes,
+        divisoes: conta.divisoes?.length || 0
+      });
+      
+      // Retornar apenas os nomes que não estão nas divisões (ou seja, são externos)
+      const externosReais = todosNomes.filter(nome => !nomesAmigosNasDivisoes.includes(nome));
+      
+      console.log('📊 Resultado filtro (Saldos):', {
+        contaId: conta.id,
+        externosReais,
+        amigosNasDivisoes: nomesAmigosNasDivisoes
+      });
+      
+      return externosReais;
+    }
+    return [];
+  };
+
   // Adaptação dos dados da API para o formato esperado pela UI
-  const contasAdaptadas = contas.map(conta => ({
-    ...conta,
-    dataVencimento: conta.vencimento,
-    tipo: 'Pessoal' as 'Pessoal' | 'Compartilhada',
-    usuariosCompartilhados: [] as string[]
-  }));
+  const contasAdaptadas = contas.map(conta => {
+    const temDivisoes = conta.divisoes && conta.divisoes.length > 0;
+    const temExternos = contaTemParticipantesExternos(conta);
+    const isCompartilhada = contaEhCompartilhada(conta);
+    
+    let usuariosCompartilhados: string[] = [];
+    
+    if (temDivisoes) {
+      usuariosCompartilhados = [...usuariosCompartilhados, ...conta.divisoes.map(divisao => divisao.usuario.nome)];
+    }
+    
+    if (temExternos) {
+      const externosReais = extrairParticipantesExternos(conta);
+      usuariosCompartilhados = [...usuariosCompartilhados, ...externosReais];
+    }
+
+    return {
+      ...conta,
+      dataVencimento: conta.vencimento,
+      tipo: isCompartilhada ? 'Compartilhada' as const : 'Pessoal' as const,
+      usuariosCompartilhados: usuariosCompartilhados
+    };
+  });
 
   const formatarData = (data: string) => {
-    return new Date(data).toLocaleDateString('pt-BR');
+    const [ano, mes, dia] = data.split('-');
+    const dataLocal = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+    return dataLocal.toLocaleDateString("pt-BR");
   };
 
   const formatarMoeda = (valor: number) => {
@@ -105,6 +166,13 @@ const VisualizarSaldos = () => {
                               ))}
                             </div>
                           </div>
+                        </div>
+                      )}
+                      
+                      {conta.tipo === 'Pessoal' && (
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <Users size={20} />
+                          <span>Conta pessoal</span>
                         </div>
                       )}
                     </CardContent>

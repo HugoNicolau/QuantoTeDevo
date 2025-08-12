@@ -250,6 +250,7 @@ export class ContaService {
     valorTotalPendente: number;
     valorMedioConta: number;
     contasMaisCaras: Conta[];
+    valorTotalVencido: number;
     contasVencendoEstaSemanao: number;
   }> {
     const userId = usuarioId || this.getUserId();
@@ -261,8 +262,9 @@ export class ContaService {
     
     const valorTotalContas = contas.reduce((sum, c) => sum + c.valor, 0);
     const valorTotalPago = contasPagas.reduce((sum, c) => sum + c.valor, 0);
-    const valorTotalPendente = valorTotalContas - valorTotalPago;
-    
+    const valorTotalVencido = contasVencidas.reduce((sum, c) => sum + c.valor, 0);
+    const valorTotalPendente = contasPendentes.reduce((sum, c) => sum + c.valor, 0);
+
     return {
       totalContas: contas.length,
       contasPagas: contasPagas.length,
@@ -271,9 +273,10 @@ export class ContaService {
       valorTotalContas,
       valorTotalPago,
       valorTotalPendente,
+      valorTotalVencido,
       valorMedioConta: contas.length > 0 ? valorTotalContas / contas.length : 0,
       contasMaisCaras: contas.sort((a, b) => b.valor - a.valor).slice(0, 5),
-      contasVencendoEstaSemanao: 0 // Implementar lógica se necessário
+      contasVencendoEstaSemanao: 0
     };
   }
 

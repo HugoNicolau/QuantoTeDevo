@@ -39,7 +39,9 @@ const PagamentoExterno = () => {
   };
 
   const formatarData = (data: string) => {
-    return new Date(data).toLocaleDateString('pt-BR');
+    const [ano, mes, dia] = data.split('-');
+    const dataLocal = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+    return dataLocal.toLocaleDateString('pt-BR');
   };
 
   const confirmarPagamento = async () => {
@@ -64,7 +66,7 @@ const PagamentoExterno = () => {
 
       toast.success('Pagamento confirmado com sucesso!');
       
-      navigate('/cadastrar-conta');
+      navigate('/registro');
       
     } catch (error) {
       toast.error('Erro ao confirmar pagamento. Tente novamente.');
@@ -133,7 +135,7 @@ const PagamentoExterno = () => {
                 </p>
               )}
             </div>
-            <Button onClick={() => navigate('/cadastrar-conta')} className="w-full">
+            <Button onClick={() => navigate('/registro')} className="w-full">
               Ir para o QuantoTeDevo
             </Button>
           </CardContent>

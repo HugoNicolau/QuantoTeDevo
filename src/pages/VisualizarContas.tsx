@@ -15,6 +15,7 @@ import {
   useEstatisticasContas,
 } from "../hooks/useContas";
 import { useAuth } from "../hooks/useAuth";
+import { usePagamentosExternosPorConta } from "../hooks/usePagamentoExterno";
 import { Conta } from "../types/api";
 import Header from "../components/Header";
 import CustomButton from "../components/CustomButton";
@@ -51,6 +52,8 @@ import {
   Plus,
   Filter,
   Download,
+  ExternalLink,
+  Info,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -71,6 +74,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { toast } from "sonner";
 
 const VisualizarContas = () => {
@@ -144,12 +152,15 @@ const VisualizarContas = () => {
           if (filtroTipo === "participando")
             return conta.criador.id !== user?.id;
           if (filtroTipo === "grupos") return !!conta.grupo;
-          if (filtroTipo === "individuais") return !conta.grupo;
+          if (filtroTipo === "compartilhadas") return contaEhCompartilhada(conta);
+          if (filtroTipo === "individuais") return !contaEhCompartilhada(conta);
           return true;
         });
 
   const formatarData = (data: string) => {
-    return new Date(data).toLocaleDateString("pt-BR");
+    const [ano, mes, dia] = data.split('-');
+    const dataLocal = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+    return dataLocal.toLocaleDateString("pt-BR");
   };
 
   const formatarMoeda = (valor: number) => {
@@ -191,7 +202,7 @@ const VisualizarContas = () => {
       case "PARCIALMENTE_PAGA":
         return (
           <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">
-            Parcial
+            Parcialmente Paga
           </Badge>
         );
       case "PENDENTE":
@@ -206,11 +217,97 @@ const VisualizarContas = () => {
   };
 
   const isContaVencida = (vencimento: string) => {
-    return new Date(vencimento) < new Date();
+    const [ano, mes, dia] = vencimento.split('-');
+    const dataVencimento = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    dataVencimento.setHours(0, 0, 0, 0);
+    return dataVencimento < hoje;
   };
 
   const podeEditarConta = (conta: Conta) => {
     return user?.id === conta.criador.id;
+  };
+
+  // Função para detectar se uma conta tem participantes externos
+  const contaTemParticipantesExternos = (conta: Conta) => {
+    return conta.descricao.includes('(compartilhada com:');
+  };
+
+  // Função para detectar se uma conta é compartilhada (tem divisões OU externos)
+  const contaEhCompartilhada = (conta: Conta) => {
+    return (conta.divisoes && conta.divisoes.length > 0) || contaTemParticipantesExternos(conta) || conta.descricao.includes('(compartilhada)');
+  };
+
+  // Função para extrair nomes dos participantes externos da descrição
+  const extrairParticipantesExternos = (conta: Conta) => {
+    const match = conta.descricao.match(/\(compartilhada com: ([^)]+)\)/);
+    if (match) {
+      const todosNomes = match[1].split(', ').map(nome => nome.trim());
+      
+      // Filtrar apenas os nomes que NÃO são de amigos nas divisões
+      const nomesAmigosNasDivisoes = conta.divisoes ? conta.divisoes.map(divisao => divisao.usuario.nome) : [];
+      
+      console.log('🔍 Debug participantes:', {
+        contaId: conta.id,
+        descricao: conta.descricao,
+        todosNomes,
+        nomesAmigosNasDivisoes,
+        divisoes: conta.divisoes?.length || 0
+      });
+      
+      // Retornar apenas os nomes que não estão nas divisões (ou seja, são externos)
+      const externosReais = todosNomes.filter(nome => !nomesAmigosNasDivisoes.includes(nome));
+      
+      console.log('📊 Resultado filtro:', {
+        contaId: conta.id,
+        externosReais,
+        amigosNasDivisoes: nomesAmigosNasDivisoes
+      });
+      
+      return externosReais;
+    }
+    return [];
+  };
+
+  // Componente para mostrar informações de pagamentos externos
+  const PagamentosExternos = ({ conta }: { conta: Conta }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const { data: pagamentosExternos = [] } = usePagamentosExternosPorConta(conta.id);
+
+    if (!contaTemParticipantesExternos(conta) || pagamentosExternos.length === 0) {
+      return null;
+    }
+
+    const pagamentosPagos = pagamentosExternos.filter(p => p.pago);
+    const valorTotalPago = pagamentosPagos.reduce((sum, p) => sum + p.valor, 0);
+
+    return (
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CollapsibleTrigger asChild>
+          <Button variant="ghost" size="sm" className="flex items-center gap-2">
+            <Info className="w-4 h-4" />
+            Pagamentos Externos ({pagamentosPagos.length}/{pagamentosExternos.length})
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-2">
+          <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+            <div className="text-sm font-medium text-gray-700">
+              Valor pago por externos: {formatarMoeda(valorTotalPago)}
+            </div>
+            {pagamentosPagos.map((pagamento) => (
+              <div key={pagamento.id} className="flex justify-between items-center text-xs text-gray-600">
+                <span>{pagamento.nomeParticipante}</span>
+                <div className="flex items-center gap-2">
+                  <span>{formatarMoeda(pagamento.valor)}</span>
+                  <CheckCircle className="w-3 h-3 text-green-600" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    );
   };
 
   const handleMarcarComoPaga = async (contaId: number) => {
@@ -267,7 +364,7 @@ const VisualizarContas = () => {
       case "pendentes":
         return estatisticas.valorTotalPendente;
       case "vencidas":
-        return estatisticas.valorTotalPendente; // Assumindo que vencidas são pendentes
+        return estatisticas.valorTotalVencido;
       default:
         return estatisticas.valorTotalContas;
     }
@@ -421,8 +518,9 @@ const VisualizarContas = () => {
                       <SelectItem value="todos">Todos os Tipos</SelectItem>
                       <SelectItem value="criadas">Criadas por Mim</SelectItem>
                       <SelectItem value="participando">Participando</SelectItem>
-                      <SelectItem value="grupos">Em Grupos</SelectItem>
+                      <SelectItem value="compartilhadas">Compartilhadas</SelectItem>
                       <SelectItem value="individuais">Individuais</SelectItem>
+                      <SelectItem value="grupos">Em Grupos</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -446,10 +544,10 @@ const VisualizarContas = () => {
                       <TableHead>Status</TableHead>
                       <TableHead>Descrição</TableHead>
                       <TableHead>Criador</TableHead>
-                      <TableHead>Grupo</TableHead>
+                      <TableHead>Tipo</TableHead>
                       <TableHead>Valor</TableHead>
                       <TableHead>Vencimento</TableHead>
-                      <TableHead>Divisões</TableHead>
+                      <TableHead>Participantes</TableHead>
                       <TableHead>Ações</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -470,7 +568,14 @@ const VisualizarContas = () => {
                           </div>
                         </TableCell>
                         <TableCell className="font-medium">
-                          {conta.descricao}
+                          <div>
+                            {conta.descricao}
+                            {contaTemParticipantesExternos(conta) && (
+                              <div className="mt-1">
+                                <PagamentosExternos conta={conta} />
+                              </div>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -483,10 +588,30 @@ const VisualizarContas = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          {conta.grupo ? (
-                            <Badge variant="outline">{conta.grupo.nome}</Badge>
+                          {contaEhCompartilhada(conta) ? (
+                            <div>
+                              <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+                                Compartilhada
+                              </Badge>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {(() => {
+                                  const divisoesCount = conta.divisoes ? conta.divisoes.length : 0;
+                                  const externosCount = contaTemParticipantesExternos(conta) ? extrairParticipantesExternos(conta).length : 0;
+                                  const totalParticipantes = divisoesCount + externosCount;
+                                  
+                                  if (totalParticipantes > 0) {
+                                    return `${totalParticipantes} participante${totalParticipantes !== 1 ? 's' : ''}`;
+                                  } else if (conta.descricao.includes('(compartilhada)')) {
+                                    return 'Com amigos do sistema';
+                                  }
+                                  return 'Compartilhada';
+                                })()}
+                              </div>
+                            </div>
                           ) : (
-                            <span className="text-gray-400">Individual</span>
+                            <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">
+                              Pessoal
+                            </Badge>
                           )}
                         </TableCell>
                         <TableCell className="font-semibold text-green-600">
@@ -509,9 +634,46 @@ const VisualizarContas = () => {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Users className="w-4 h-4 text-gray-400" />
-                            <span className="text-sm">
-                              {conta.divisoes?.length || 0}
-                            </span>
+                            {contaEhCompartilhada(conta) ? (
+                              <div className="space-y-1">
+                                {(() => {
+                                  const amigosDivisoes = conta.divisoes || [];
+                                  const externosNomes = contaTemParticipantesExternos(conta) ? extrairParticipantesExternos(conta) : [];
+                                  const totalParticipantes = amigosDivisoes.length + externosNomes.length;
+                                  
+                                  if (totalParticipantes > 0) {
+                                    return (
+                                      <>
+                                        <div className="text-sm font-medium">
+                                          {totalParticipantes} pessoa{totalParticipantes !== 1 ? 's' : ''}
+                                        </div>
+                                        <div className="text-xs text-gray-500 max-w-32">
+                                          {amigosDivisoes.length > 0 && (
+                                            <div className="truncate mb-1">
+                                              <span className="font-medium text-blue-600">Amigos:</span> {amigosDivisoes.map(divisao => divisao.usuario.nome).join(', ')}
+                                            </div>
+                                          )}
+                                          {externosNomes.length > 0 && (
+                                            <div className="truncate">
+                                              <span className="font-medium text-orange-600">Externos:</span> {externosNomes.join(', ')}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </>
+                                    );
+                                  } else if (conta.descricao.includes('(compartilhada)')) {
+                                    return (
+                                      <div className="text-sm text-blue-600">
+                                        Amigos do sistema
+                                      </div>
+                                    );
+                                  }
+                                  return <span className="text-sm text-gray-500">Compartilhada</span>;
+                                })()}
+                              </div>
+                            ) : (
+                              <span className="text-sm text-gray-500">Apenas você</span>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>

@@ -27,6 +27,7 @@ interface PagamentoExternoDto {
   dataPagamento?: string;
   formaPagamento?: string;
   observacoes?: string;
+  contaId: number;
 }
 
 interface ConfirmarPagamentoRequest {

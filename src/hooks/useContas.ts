@@ -260,6 +260,39 @@ export const useAlterarStatusConta = () => {
   });
 };
 
+// Hook para reduzir valor da conta quando pagamento externo for confirmado
+export const useReduzirValorConta = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ contaId, valorPago }: { contaId: number; valorPago: number }) => {
+      // Buscar dados atuais da conta
+      const conta = await contaService.buscarConta(contaId);
+      
+      const novoValor = conta.valor - valorPago;
+      
+      // Se o novo valor for zero ou negativo, marcar como paga
+      if (novoValor <= 0) {
+        return await contaService.alterarStatus(contaId, 'PAGA');
+      } else {
+        // Reduzir o valor primeiro
+        await contaService.atualizarConta(contaId, { valor: novoValor });
+        
+        // Depois marcar como parcialmente paga
+        return await contaService.alterarStatus(contaId, 'PARCIALMENTE_PAGA');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: contaKeys.all });
+      toast.success('Valor da conta atualizado com o pagamento!');
+    },
+    onError: (error: AxiosError<ErrorResponse>) => {
+      const message = error.response?.data?.message || 'Erro ao atualizar valor da conta';
+      toast.error(message);
+    }
+  });
+};
+
 export const useMarcarContaComoVencida = () => {
   const queryClient = useQueryClient();
 
@@ -346,11 +379,14 @@ export const useDividirContaIgualmente = () => {
       if (divisoes.length > 0) {
         queryClient.invalidateQueries({ queryKey: contaKeys.divisoes(divisoes[0].conta.id) });
       }
-      toast.success('Conta dividida igualmente com sucesso!');
+      // Removido o toast automático para não conflitar com o controle manual
+      console.log('✅ Divisões criadas:', divisoes.length);
     },
     onError: (error: AxiosError<ErrorResponse>) => {
       const message = error.response?.data?.message || 'Erro ao dividir conta';
-      toast.error(message);
+      console.error('❌ Erro ao dividir conta:', message);
+      // Não mostrar toast aqui - deixar para o componente decidir
+      throw error; // Re-throw para que o componente possa capturar
     }
   });
 };

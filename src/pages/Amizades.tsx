@@ -159,7 +159,9 @@ const Amizades = () => {
   );
 
   const formatarData = (data: string) => {
-    return new Date(data).toLocaleDateString("pt-BR");
+    const [ano, mes, dia] = data.split('-');
+    const dataLocal = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+    return dataLocal.toLocaleDateString("pt-BR");
   };
 
   if (loadingAmigos || loadingConvites) {

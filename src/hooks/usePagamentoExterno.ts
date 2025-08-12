@@ -1,5 +1,7 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { pagamentoExternoService, type PagamentoExternoDto, type CriarLinkRequest, type ConfirmarPagamentoRequest } from '../services/pagamentoExternoService';
+import { useReduzirValorConta } from './useContas';
+import { toast } from 'sonner';
 
 // Hook para criar link de pagamento
 export const useCriarLinkPagamento = () => {
@@ -24,9 +26,34 @@ export const useBuscarPagamento = (linkId: string | undefined, enabled = true) =
 
 // Hook para confirmar pagamento
 export const useConfirmarPagamento = () => {
+  const queryClient = useQueryClient();
+  const reduzirValorConta = useReduzirValorConta();
+
   return useMutation({
-    mutationFn: ({ linkId, request }: { linkId: string; request: ConfirmarPagamentoRequest }) => 
-      pagamentoExternoService.confirmarPagamento(linkId, request),
+    mutationFn: async ({ linkId, request }: { linkId: string; request: ConfirmarPagamentoRequest }) => {
+      // Primeiro confirmar o pagamento
+      const pagamentoConfirmado = await pagamentoExternoService.confirmarPagamento(linkId, request);
+      
+      // Depois reduzir o valor da conta associada
+      if (pagamentoConfirmado.contaId && pagamentoConfirmado.valor) {
+        try {
+          await reduzirValorConta.mutateAsync({
+            contaId: pagamentoConfirmado.contaId,
+            valorPago: pagamentoConfirmado.valor
+          });
+        } catch (error) {
+          console.error('Erro ao atualizar valor da conta:', error);
+          // Não falhamos o pagamento se houver erro na atualização da conta
+          toast.warning('Pagamento confirmado, mas houve erro ao atualizar o valor da conta');
+        }
+      }
+
+      return pagamentoConfirmado;
+    },
+    onSuccess: () => {
+      // Invalidar cache dos pagamentos externos
+      queryClient.invalidateQueries({ queryKey: ['pagamento-externo'] });
+    },
     onError: (error) => {
       console.error('Erro ao confirmar pagamento:', error);
     }

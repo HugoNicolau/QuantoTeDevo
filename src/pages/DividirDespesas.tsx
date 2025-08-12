@@ -173,58 +173,92 @@ const DividirDespesas = () => {
       const participantesExternos = participantes.filter(p => p.tipo === 'externo');
       const amigosParticipantes = participantes.filter(p => p.tipo === 'amigo' && p.usuarioId);
       
-      // Determinar tipo da conta baseado nos participantes
-      let descricaoFinal = descricao;
-      let deveConsiderarDividida = false;
-      
-      if (participantesExternos.length > 0) {
-        // Tem pessoas externas
-        if (amigosParticipantes.length > 0) {
-          // Tem amigos E externos
-          descricaoFinal = `${descricao} (dividida com ${amigosParticipantes.length} amigo(s) e ${participantesExternos.length} pessoa(s) externa(s))`;
-        } else {
-          // Só tem externos
-          descricaoFinal = `${descricao} (dividida com ${participantesExternos.length} pessoa(s) externa(s) ao sistema)`;
+      // Verificar se tem participantes (externos ou amigos)
+      const temParticipantes = participantesExternos.length > 0 || amigosParticipantes.length > 0;
+
+      let contaPrincipalId: number | null = null;
+
+      if (temParticipantes) {
+        // Criar conta compartilhada - uma única conta do usuário atual
+        // Incluir APENAS participantes externos na descrição (amigos terão suas próprias contas)
+        let descricaoCompartilhada = descricao;
+        if (participantesExternos.length > 0) {
+          const nomesExternos = participantesExternos.map(p => p.nome);
+          descricaoCompartilhada = `${descricao} (compartilhada com: ${nomesExternos.join(', ')})`;
+        } else if (amigosParticipantes.length > 0) {
+          // Se só tem amigos, mencionar que é compartilhada mas sem nomes (eles terão contas próprias)
+          descricaoCompartilhada = `${descricao} (compartilhada)`;
         }
-        deveConsiderarDividida = true;
-      } else if (amigosParticipantes.length > 0) {
-        // Só tem amigos do sistema
-        descricaoFinal = `${descricao} (dividida com ${amigosParticipantes.length} amigo(s))`;
-        deveConsiderarDividida = true;
-      } else if (incluirMim) {
-        // Só o usuário atual
-        descricaoFinal = `${descricao} (conta pessoal)`;
-      }
 
-      // Criar a conta
-      const novaConta = await criarContaMutation.mutateAsync({
-        descricao: descricaoFinal,
-        valor: parseFloat(valor),
-        vencimento: formatarDataParaBackend(dataVencimento),
-        criadorId: usuario.id
-      });
-
-      setContaCriada(novaConta.id);
-
-      if (amigosParticipantes.length > 0) {
-        const usuarioIds = amigosParticipantes.map(p => p.usuarioId!);
+        // Calcular valor por pessoa (incluindo o criador se marcado)
+        let totalParticipantes = amigosParticipantes.length;
+        if (incluirMim) totalParticipantes += 1;
         
-        // Se o usuário atual está incluído, adicionar seu ID
-        if (incluirMim) {
-          usuarioIds.push(usuario.id);
+        const valorPorPessoa = parseFloat(valor) / totalParticipantes;
+        
+        console.log('💰 Cálculo de valores:', {
+          valorTotal: parseFloat(valor),
+          totalParticipantes,
+          valorPorPessoa,
+          incluirMim
+        });
+
+        const novaConta = await criarContaMutation.mutateAsync({
+          descricao: descricaoCompartilhada,
+          valor: incluirMim ? valorPorPessoa : parseFloat(valor), // Se eu estou incluído, minha parte já está na conta
+          vencimento: formatarDataParaBackend(dataVencimento),
+          criadorId: usuario.id
+        });
+
+        contaPrincipalId = novaConta.id;
+        console.log('✅ Conta principal criada:', contaPrincipalId);
+
+        // Criar contas individuais apenas para amigos participantes
+        if (amigosParticipantes.length > 0) {
+          console.log('🔄 Criando contas individuais para amigos:', {
+            totalAmigos: amigosParticipantes.length,
+            valorPorAmigo: valorPorPessoa
+          });
+          
+          try {
+            for (const amigo of amigosParticipantes) {
+              console.log(`📝 Criando conta para ${amigo.nome} (ID: ${amigo.usuarioId})`);
+              
+              await criarContaMutation.mutateAsync({
+                descricao: `${descricao} (sua parte)`,
+                valor: valorPorPessoa,
+                vencimento: formatarDataParaBackend(dataVencimento),
+                criadorId: amigo.usuarioId!
+              });
+            }
+            
+            console.log('✅ Contas individuais criadas para todos os amigos');
+          } catch (contaError) {
+            console.error('❌ Erro ao criar contas para amigos:', contaError);
+            toast.warning('Conta criada, mas houve erro ao criar contas para amigos');
+          }
         }
 
-        await dividirContaMutation.mutateAsync({
-          contaId: novaConta.id,
-          usuarioIds
+        setContaCriada(contaPrincipalId);
+        
+        const tipoMensagem = participantesExternos.length > 0 
+          ? 'Conta compartilhada criada! Use os links de pagamento para participantes externos.' 
+          : 'Contas divididas criadas com sucesso! Cada amigo tem sua conta individual.';
+        
+        toast.success(tipoMensagem);
+        
+      } else {
+        // Conta pessoal - só o usuário
+        const novaConta = await criarContaMutation.mutateAsync({
+          descricao: descricao,
+          valor: parseFloat(valor),
+          vencimento: formatarDataParaBackend(dataVencimento),
+          criadorId: usuario.id
         });
-      }
 
-      const tipoMensagem = deveConsiderarDividida 
-        ? 'Conta dividida criada e registrada com sucesso!' 
-        : 'Conta pessoal criada com sucesso!';
-      
-      toast.success(tipoMensagem);
+        setContaCriada(novaConta.id);
+        toast.success('Conta pessoal criada com sucesso!');
+      }
       
     } catch (error) {
       console.error('Erro ao salvar conta e divisão:', error);
@@ -598,13 +632,15 @@ const DividirDespesas = () => {
                         {(() => {
                           const participantesExternos = participantes.filter(p => p.tipo === 'externo');
                           const amigosParticipantes = participantes.filter(p => p.tipo === 'amigo');
+                          const nomesAmigos = amigosParticipantes.map(p => p.nome);
+                          const nomesExternos = participantesExternos.map(p => p.nome);
                           
                           if (participantesExternos.length > 0 && amigosParticipantes.length > 0) {
-                            return 'Conta dividida registrada! Divisões criadas para amigos do sistema e links gerados para pessoas externas.';
+                            return `Contas criadas para você e divididas com: ${nomesAmigos.join(', ')} (amigos) e ${nomesExternos.join(', ')} (externos). Use os links de pagamento para pessoas externas.`;
                           } else if (participantesExternos.length > 0) {
-                            return 'Conta dividida com pessoas externas registrada! Use os links de pagamento para facilitar o processo.';
+                            return `Contas criadas e divididas com pessoas externas: ${nomesExternos.join(', ')}. Use os links de pagamento para facilitar o processo.`;
                           } else if (amigosParticipantes.length > 0) {
-                            return 'Conta dividida registrada e as divisões foram criadas para os amigos do sistema.';
+                            return `Contas criadas e divididas com seus amigos: ${nomesAmigos.join(', ')}. Cada um tem sua conta individual registrada.`;
                           } else {
                             return 'Conta pessoal registrada com sucesso!';
                           }
